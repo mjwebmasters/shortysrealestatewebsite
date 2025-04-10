@@ -1,0 +1,40 @@
+FROM node:18-alpine as builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source files
+COPY . .
+
+# Create start script
+RUN printf '#!/bin/sh\nnode server.js\n' > start.sh && \
+    chmod +x start.sh
+
+# Production stage
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy only necessary files from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/server.js ./
+COPY --from=builder /app/models ./models
+COPY --from=builder /app/routes ./routes
+COPY --from=builder /app/middleware ./middleware
+COPY --from=builder /app/start.sh ./start.sh
+
+# Set proper permissions
+RUN chown -R node:node /app && \
+    chmod +x start.sh
+
+USER node
+
+EXPOSE 5000
+
+CMD ["./start.sh"] 

@@ -1,0 +1,47 @@
+FROM node:18-alpine as builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source files
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Create start script
+RUN printf '#!/bin/sh\nnpm start\n' > start.sh && \
+    chmod +x start.sh
+
+# Production stage
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy only necessary files from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/craco.config.js ./
+COPY --from=builder /app/postcss.config.js ./
+COPY --from=builder /app/start.sh ./start.sh
+
+# Set proper permissions
+RUN chown -R node:node /app && \
+    chmod +x start.sh
+
+USER node
+
+EXPOSE 3000
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
+
+CMD ["./start.sh"] 

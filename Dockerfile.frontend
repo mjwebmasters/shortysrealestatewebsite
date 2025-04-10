@@ -1,0 +1,19 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+EXPOSE 3000
+
+# Create a shell script to handle signals
+RUN echo '#!/bin/sh\n\
+trap "exit 0" SIGTERM\n\
+npm start & wait' > /app/start.sh && \
+chmod +x /app/start.sh
+
+CMD ["/app/start.sh"] 
